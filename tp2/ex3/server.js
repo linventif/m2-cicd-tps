@@ -31,6 +31,14 @@ app.get('/big', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT}`);
 });
+
+// En PID 1 dans un conteneur, node ignore SIGTERM s'il n'a pas de handler :
+// docker stop attendrait alors 10 s avant de tuer le process.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    server.close(() => process.exit(0));
+  });
+}
