@@ -6,7 +6,7 @@ Le sujet fournit une petite appli Node.js (Express) avec son Dockerfile, que l'o
 
 ## Méthode de mesure
 
-Toutes les mesures viennent de [`bench.sh`](bench.sh), lancé après chaque étape :
+Les mesures du tableau viennent de [`bench.sh`](bench.sh), lancé après chaque étape. La route `/big` est mesurée à part avec [`bench-big.sh`](bench-big.sh) (voir l'étape 8). Il faut Docker, `jq` et Node.js (pour lancer `autocannon` via `npx`).
 
 ```bash
 cd tp2
@@ -25,7 +25,7 @@ cd tp2
 | Débit, latence | `autocannon` sur `/`, avec 50 connexions pendant 10 s |
 | Arrêt | durée de `docker stop` |
 
-Machine : 16 cœurs, 29 Go de RAM, Docker 29.8.1, Linux 7.0. Les temps de build dépendent du réseau (`apt-get`, `npm`) : sur deux mesures de départ, le build à froid a pris 12,4 s puis 38,0 s. On compare donc surtout les ordres de grandeur.
+Machine : 16 cœurs, 29 Go de RAM, Docker 29.8.1, Linux 7.0. Les temps de build dépendent du réseau (`apt-get`, `npm`) : sur deux mesures de départ, le build à froid a pris 12,4 s puis 38,0 s. Le débit varie d'environ ±10 % entre deux mesures identiques (25 037 puis 23 697 req/s au départ). On compare donc surtout les ordres de grandeur.
 
 ## Analyse de départ
 
@@ -178,3 +178,54 @@ Un premier stage installe les dépendances avec npm. L'image finale part d'une A
 | 8. `/big` en streaming | 260 MB | 64,2 MB | 7 | 3,0 s | 0,8 s | 0,4 s | 20,1 MiB | 35 125 req/s | 1,08 ms | 10,3 s | node |
 | 9. Arrêt propre | 260 MB | 64,2 MB | 7 | 2,7 s | 0,8 s | 0,4 s | 20,0 MiB | 35 129 req/s | 1,09 ms | 0,2 s | node |
 | 10. Multi-stage | 219 MB | 56,2 MB | 6 | 7,2 s | 0,9 s | 0,4 s | 20,2 MiB | 37 093 req/s | 1,07 ms | 0,2 s | node |
+
+## Résultat
+
+Dockerfile final ([`ex3/Dockerfile`](ex3/Dockerfile)) :
+
+```dockerfile
+# Stage 1 : installation des dépendances de production
+FROM node:26.13.0-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# Stage 2 : image d'exécution, Alpine + binaire node seul (sans npm ni en-têtes)
+FROM alpine:3.24.4
+RUN apk add --no-cache libstdc++ libgcc libatomic \
+    && addgroup -g 1000 node \
+    && adduser -u 1000 -G node -s /bin/sh -D node
+COPY --from=deps /usr/local/bin/node /usr/local/bin/node
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY server.js ./
+EXPOSE 3000
+USER node
+CMD ["node", "server.js"]
+```
+
+| | Départ | Final | |
+| --- | --- | --- | --- |
+| Taille sur disque | 1884 Mo | 219 Mo | −88 % |
+| Taille compressée (`docker pull`) | 474 Mo | 56,2 Mo | −88 % |
+| Couches | 13 | 6 | |
+| Contexte de build | 13,9 Mo | 60 Ko | |
+| Rebuild après modification du code | 14,5 s | 0,9 s | ×16 plus rapide |
+| Débit sur `/` | 25 037 req/s | 37 093 req/s | +48 % ¹ |
+| `/` pendant une charge sur `/big` | 69 req/s | 5 900 à 8 200 req/s | plus de blocage |
+| Arrêt (`docker stop`) | 10,3 s | 0,2 s | |
+| Utilisateur | root | node | |
+
+¹ Dont +20 % mesurés à l'étape 7 (suppression du log). Le reste est en partie du bruit de mesure (±10 %).
+
+Ce qui a le plus pesé : l'image de base (−85 % à elle seule), l'ordre des couches pour le cache (rebuild ×16), et les corrections du code (débit, blocage de l'event loop, arrêt).
+
+Lancer l'appli :
+
+```bash
+cd tp2/ex3
+docker build -t tp2-app .
+docker run -d -p 3000:3000 --name tp2-app tp2-app
+curl http://localhost:3000/
+```
