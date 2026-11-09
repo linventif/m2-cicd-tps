@@ -120,6 +120,16 @@ conteneur
 docker build -t <nom_image> . Construit une image à partir d’un Dockerfil -->
 hey
 
+## 0. Environnement Python
+
+L'environnement du TP1 est géré avec uv, en Python 3.14. Il contient `flask` (ex5) et `pymongo` (ex6). L'organisation du dépôt et les conventions sont décrites dans le [README racine](../README.md).
+
+```bash
+cd tp1
+uv sync                      # crée le .venv à partir du uv.lock
+uv run python ex5/app.py     # lance l'app Flask hors Docker
+```
+
 ## 1.1 Installation de Docker
 
 Pour installer docker sur linux : https://docs.docker.com/engine/install/ubuntu/
