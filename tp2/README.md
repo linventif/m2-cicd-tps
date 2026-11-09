@@ -63,8 +63,18 @@ Problèmes relevés :
 
 Taille des couches (`docker history`) : `apt-get` 50,1 Mo, `COPY node_modules` 14,2 Mo, `npm install` 7,7 Mo, le reste vient de l'image de base.
 
+## Étapes
+
+### 1. `.dockerignore` et suppression de `COPY node_modules`
+
+Le `node_modules` de la machine n'est plus envoyé ni copié dans l'image. Les dépendances sont installées uniquement dans le conteneur.
+
+- Contexte de build : 13,9 Mo → 60 Ko.
+- L'image grossit de 6 Mo : `npm install` part maintenant de zéro et laisse son cache dans `/root/.npm` (7,1 Mo). Ce sera corrigé à l'étape 3.
+
 ## Mesures
 
 | Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0. Départ | 1884 MB | 13 | 12,4 s | 14,5 s | 0,3 s | 19,9 MiB | 25 037 req/s | 1,48 ms | 10,3 s | root |
+| 1. `.dockerignore` | 1890 MB | 12 | 14,0 s | 12,1 s | 0,3 s | 19,8 MiB | 27 027 req/s | 1,30 ms | 10,3 s | root |
