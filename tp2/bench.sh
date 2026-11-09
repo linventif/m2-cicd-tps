@@ -33,6 +33,7 @@ rm -rf "$tmp"
 
 # 3. Image
 size_mb=$(docker image inspect -f '{{.Size}}' "$IMG" | awk '{ printf "%.0f", $1 / 1000000 }')
+compressed=$(docker images "$IMG" | awk 'NR == 2 { print $4 }') # CONTENT SIZE : ce qui est téléchargé au pull
 layers=$(docker image inspect -f '{{len .RootFS.Layers}}' "$IMG")
 user=$(docker image inspect -f '{{.Config.User}}' "$IMG")
 user=${user:-root}
@@ -63,5 +64,5 @@ docker stop "$NAME" >/dev/null
 stop=$(since "$t")
 docker rm "$NAME" >/dev/null
 
-echo "| Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |"
-echo "| $TAG | $size_mb MB | $layers | $build_cold s | $build_warm s | $startup s | $mem | $rps req/s | $lat ms | $stop s | $user |"
+echo "| Étape | Disque | Compressée | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |"
+echo "| $TAG | $size_mb MB | $compressed | $layers | $build_cold s | $build_warm s | $startup s | $mem | $rps req/s | $lat ms | $stop s | $user |"
