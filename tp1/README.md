@@ -136,6 +136,11 @@ Pour installer docker sur linux : https://docs.docker.com/engine/install/ubuntu/
 
 ## 1.2 Vérification de l'installation
 
+```bash
+$ docker --version
+Docker version 29.8.1, build 4a63305
+```
+
 ## 1.5 Déploiement d'une application Python Flask
 
 ## 1.6 Utilisation de docker compose
