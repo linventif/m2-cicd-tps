@@ -93,6 +93,13 @@ COPY server.js ./
 - `npm cache clean` : le cache npm passe de 7,1 Mo à 56 Ko.
 - Taille : 1815 → 1802 Mo.
 
+### 4. Image de base `node:26.13.0-alpine`
+
+`node:latest` est une image Debian complète, qui embarque compilateurs, outils et bibliothèques, et dont la version change à chaque release. `node:26.13.0-alpine` contient la même version de Node.js sur Alpine Linux, et la version est figée.
+
+- Taille : 1802 → 271 Mo (−85 %), c'est le plus gros gain du TP.
+- Couches : 11 → 7.
+
 ## Mesures
 
 | Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
@@ -101,3 +108,4 @@ COPY server.js ./
 | 1. `.dockerignore` | 1890 MB | 12 | 14,0 s | 12,1 s | 0,3 s | 19,8 MiB | 27 027 req/s | 1,30 ms | 10,3 s | root |
 | 2. Sans apt ni faux build | 1815 MB | 10 | 3,4 s | 3,5 s | 0,3 s | 19,7 MiB | 27 016 req/s | 1,33 ms | 10,3 s | root |
 | 3. Dépendances | 1802 MB | 11 | 3,0 s | 0,8 s | 0,5 s | 19,8 MiB | 26 630 req/s | 1,37 ms | 10,3 s | root |
+| 4. Alpine | 271 MB | 7 | 4,0 s | 0,9 s | 0,5 s | 20,0 MiB | 25 532 req/s | 1,42 ms | 10,3 s | root |
