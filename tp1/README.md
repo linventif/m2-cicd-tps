@@ -143,4 +143,60 @@ Docker version 29.8.1, build 4a63305
 
 ## 1.5 Déploiement d'une application Python Flask
 
+Fichiers dans [`ex5/`](ex5/) :
+
+- `app.py` : application Flask minimale, la route `/` renvoie `Hello, World!`
+- `requirements.txt` : `flask==3.1.3`
+- `Dockerfile` :
+
+```dockerfile
+FROM python:3.14-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app.py .
+
+EXPOSE 5000
+
+CMD ["flask", "--app", "app", "run", "--host=0.0.0.0", "--port=5000"]
+```
+
+Choix faits :
+
+- Image de base `python:3.14-slim`, plus légère que `python:3.14`.
+- `requirements.txt` est copié et installé **avant** `app.py` : tant que les dépendances ne changent pas, Docker réutilise la couche en cache et ne relance pas `pip install` à chaque modification du code.
+- `--no-cache-dir` évite de garder le cache pip dans l'image.
+- L'app écoute sur `0.0.0.0` : avec l'adresse par défaut (`127.0.0.1`), elle ne serait pas joignable depuis l'extérieur du conteneur.
+
+Build et lancement :
+
+```bash
+cd tp1/ex5
+docker build -t tp1-flask .
+docker run -d -p 5000:5000 --name tp1_flask tp1-flask
+```
+
+Test :
+
+```bash
+$ curl http://localhost:5000/
+Hello, World!
+
+$ docker images tp1-flask
+REPOSITORY   TAG       SIZE
+tp1-flask    latest    201MB
+```
+
+L'application est aussi accessible dans le navigateur sur <http://localhost:5000>.
+
+Arrêt et suppression du conteneur :
+
+```bash
+docker stop tp1_flask
+docker rm tp1_flask
+```
+
 ## 1.6 Utilisation de docker compose
