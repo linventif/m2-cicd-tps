@@ -79,6 +79,20 @@ On retire `apt-get install build-essential ca-certificates locales` (aucun modul
 - Taille : 1890 → 1815 Mo (−75 Mo).
 - Build à froid : 14,0 → 3,4 s, car il n'y a plus d'`apt-get update`.
 
+### 3. Dépendances : cache, `npm ci --omit=dev`, `NODE_ENV=production`
+
+```dockerfile
+ENV NODE_ENV=production
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+COPY server.js ./
+```
+
+- Les fichiers `package*.json` sont copiés **avant** le code. Quand seul `server.js` change, la couche des dépendances reste en cache : le rebuild passe de 3,5 à 0,8 s.
+- `npm ci` installe exactement les versions du lockfile, et `--omit=dev` laisse `nodemon` de côté : `node_modules` passe de 16 à 14 Mo.
+- `npm cache clean` : le cache npm passe de 7,1 Mo à 56 Ko.
+- Taille : 1815 → 1802 Mo.
+
 ## Mesures
 
 | Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
@@ -86,3 +100,4 @@ On retire `apt-get install build-essential ca-certificates locales` (aucun modul
 | 0. Départ | 1884 MB | 13 | 12,4 s | 14,5 s | 0,3 s | 19,9 MiB | 25 037 req/s | 1,48 ms | 10,3 s | root |
 | 1. `.dockerignore` | 1890 MB | 12 | 14,0 s | 12,1 s | 0,3 s | 19,8 MiB | 27 027 req/s | 1,30 ms | 10,3 s | root |
 | 2. Sans apt ni faux build | 1815 MB | 10 | 3,4 s | 3,5 s | 0,3 s | 19,7 MiB | 27 016 req/s | 1,33 ms | 10,3 s | root |
+| 3. Dépendances | 1802 MB | 11 | 3,0 s | 0,8 s | 0,5 s | 19,8 MiB | 26 630 req/s | 1,37 ms | 10,3 s | root |
