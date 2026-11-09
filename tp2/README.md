@@ -138,6 +138,20 @@ La réponse est identique à l'octet près, et le message `Fichier introuvable` 
 | `/` pendant la charge | 69 req/s, latence 142 ms (p99 178 ms) | 5 923 req/s, latence 1,3 ms (p99 4 ms) |
 | RAM sous charge | 179 Mio | 113 Mio |
 
+### 9. Arrêt propre sur `SIGTERM`
+
+Dans le conteneur, `node` est le PID 1 : sans handler, il ignore `SIGTERM`. `docker stop` attendait donc 10 s, puis tuait le process avec `SIGKILL` (code 137). Maintenant, le serveur termine les requêtes en cours puis s'arrête :
+
+```js
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    server.close(() => process.exit(0));
+  });
+}
+```
+
+- Arrêt : 10,3 → 0,2 s, avec un code de sortie 0. Cela accélère les redéploiements et les `docker compose down`.
+
 ## Mesures
 
 | Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
@@ -151,3 +165,4 @@ La réponse est identique à l'octet près, et le message `Fichier introuvable` 
 | 6. Sans `mongodb` | 260 MB | 7 | 2,9 s | 0,8 s | 0,4 s | 20,3 MiB | 27 055 req/s | 1,30 ms | 10,3 s | node |
 | 7. Sans log par requête | 260 MB | 7 | 3,4 s | 0,9 s | 0,4 s | 20,2 MiB | 32 429 req/s | 1,19 ms | 10,3 s | node |
 | 8. `/big` en streaming | 260 MB | 7 | 3,0 s | 0,8 s | 0,4 s | 20,1 MiB | 35 125 req/s | 1,08 ms | 10,3 s | node |
+| 9. Arrêt propre | 260 MB | 7 | 2,7 s | 0,8 s | 0,4 s | 20,0 MiB | 35 129 req/s | 1,09 ms | 0,2 s | node |
