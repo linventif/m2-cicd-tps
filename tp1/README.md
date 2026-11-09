@@ -174,6 +174,24 @@ Deleted: sha256:c567b231f65614688711a75f31518a064258a51d442117a3e771a3a8fdba78ef
 
 Le conteneur doit être supprimé avant l'image : même arrêté, il l'utilise encore.
 
+## 1.4 Création d'un serveur web avec Docker
+
+```bash
+$ docker pull nginx
+$ docker run -d -p 8080:80 --name mon_nginx nginx
+$ docker ps
+CONTAINER ID   IMAGE   STATUS          PORTS                  NAMES
+671afe42df98   nginx   Up 1 second     0.0.0.0:8080->80/tcp   mon_nginx
+
+$ curl -s http://localhost:8080 | grep '<title>'
+<title>Welcome to nginx!</title>
+
+$ docker stop mon_nginx
+$ docker rm mon_nginx
+```
+
+`-p 8080:80` publie le port 80 du conteneur sur le port 8080 de la machine. La page par défaut de Nginx est donc accessible sur <http://localhost:8080>.
+
 ## 1.5 Déploiement d'une application Python Flask
 
 Fichiers dans [`ex5/`](ex5/) :
