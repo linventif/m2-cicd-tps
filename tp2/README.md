@@ -118,6 +118,26 @@ Le middleware écrivait une ligne dans `stdout` à chaque requête. Docker captu
 - Débit : 27 055 → 32 429 req/s (+20 %).
 - Latence moyenne : 1,30 → 1,19 ms.
 
+### 8. `/big` en streaming
+
+`existsSync` puis `readFileSync` chargeaient tout le fichier en mémoire, et `replace` le transformait en une seule fois. Pendant ce temps, l'event loop était bloquée : le serveur ne répondait plus à aucune autre requête. Maintenant, le fichier est lu par morceaux et transformé au fil de l'eau :
+
+```js
+const file = fs.createReadStream(BIG_FILE, 'utf8');
+// ...
+pipeline(file, newlinesToBr, res, () => {});   // newlinesToBr : Transform qui remplace \n par <br/>
+```
+
+La réponse est identique à l'octet près, et le message `Fichier introuvable` est conservé.
+
+`bench.sh` ne charge que `/`, et le fichier n'existe pas dans l'image. [`bench-big.sh`](bench-big.sh) monte donc un fichier de 5 Mo et charge `/big` et `/` en même temps pendant 10 s (10 connexions chacun) :
+
+| | Avant (synchrone) | Après (streaming) |
+| --- | --- | --- |
+| `/big` | 58 req/s | 83 req/s |
+| `/` pendant la charge | 69 req/s, latence 142 ms (p99 178 ms) | 5 923 req/s, latence 1,3 ms (p99 4 ms) |
+| RAM sous charge | 179 Mio | 113 Mio |
+
 ## Mesures
 
 | Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
@@ -130,3 +150,4 @@ Le middleware écrivait une ligne dans `stdout` à chaque requête. Docker captu
 | 5. Non-root | 271 MB | 7 | 3,1 s | 0,9 s | 0,5 s | 20,0 MiB | 25 305 req/s | 1,43 ms | 10,3 s | node |
 | 6. Sans `mongodb` | 260 MB | 7 | 2,9 s | 0,8 s | 0,4 s | 20,3 MiB | 27 055 req/s | 1,30 ms | 10,3 s | node |
 | 7. Sans log par requête | 260 MB | 7 | 3,4 s | 0,9 s | 0,4 s | 20,2 MiB | 32 429 req/s | 1,19 ms | 10,3 s | node |
+| 8. `/big` en streaming | 260 MB | 7 | 3,0 s | 0,8 s | 0,4 s | 20,1 MiB | 35 125 req/s | 1,08 ms | 10,3 s | node |
