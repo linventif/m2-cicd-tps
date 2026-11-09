@@ -118,7 +118,6 @@ docker rmi <id|nom> Supprime une image
 docker exec -it <id|nom> bash Ouvre un terminal interactif dans un
 conteneur
 docker build -t <nom_image> . Construit une image à partir d’un Dockerfil -->
-hey
 
 ## 0. Environnement Python
 
@@ -132,7 +131,7 @@ uv run python ex5/app.py     # lance l'app Flask hors Docker
 
 ## 1.1 Installation de Docker
 
-Pour installer docker sur linux : https://docs.docker.com/engine/install/ubuntu/
+Pour installer Docker sur Linux : <https://docs.docker.com/engine/install/ubuntu/>
 
 ## 1.2 Vérification de l'installation
 
