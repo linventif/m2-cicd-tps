@@ -141,6 +141,39 @@ $ docker --version
 Docker version 29.8.1, build 4a63305
 ```
 
+## 1.3 Manipulation de base des conteneurs
+
+```bash
+$ docker images
+IMAGE                    ID             DISK USAGE   CONTENT SIZE
+nginx:latest             165ddde8751e        243MB         66.8MB
+tp1-flask:latest         72640d79547e        201MB           49MB
+...
+
+$ docker pull hello-world
+Status: Downloaded newer image for hello-world:latest
+
+$ docker run hello-world
+Hello from Docker!
+This message shows that your installation appears to be working correctly.
+...
+
+$ docker ps        # hello-world n'y est pas : il s'arrête après avoir affiché son message
+$ docker ps -a
+CONTAINER ID   IMAGE         COMMAND    STATUS                      NAMES
+70289374b4f7   hello-world   "/hello"   Exited (0) 1 second ago     crazy_almeida
+...
+
+$ docker rm 70289374b4f7
+70289374b4f7
+
+$ docker rmi hello-world
+Untagged: hello-world:latest
+Deleted: sha256:c567b231f65614688711a75f31518a064258a51d442117a3e771a3a8fdba78ef
+```
+
+Le conteneur doit être supprimé avant l'image : même arrêté, il l'utilise encore.
+
 ## 1.5 Déploiement d'une application Python Flask
 
 Fichiers dans [`ex5/`](ex5/) :
