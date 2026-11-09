@@ -111,6 +111,13 @@ COPY server.js ./
 - `node_modules` : 14 → 4,4 Mo (78 → 67 paquets).
 - Taille : 271 → 260 Mo.
 
+### 7. Suppression du middleware de log
+
+Le middleware écrivait une ligne dans `stdout` à chaque requête. Docker capture ces logs, et à plus de 25 000 req/s cela coûte cher. Pour journaliser les requêtes en production, il vaut mieux un logger asynchrone (`pino`, par exemple) ou les logs du reverse proxy.
+
+- Débit : 27 055 → 32 429 req/s (+20 %).
+- Latence moyenne : 1,30 → 1,19 ms.
+
 ## Mesures
 
 | Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
@@ -122,3 +129,4 @@ COPY server.js ./
 | 4. Alpine | 271 MB | 7 | 4,0 s | 0,9 s | 0,5 s | 20,0 MiB | 25 532 req/s | 1,42 ms | 10,3 s | root |
 | 5. Non-root | 271 MB | 7 | 3,1 s | 0,9 s | 0,5 s | 20,0 MiB | 25 305 req/s | 1,43 ms | 10,3 s | node |
 | 6. Sans `mongodb` | 260 MB | 7 | 2,9 s | 0,8 s | 0,4 s | 20,3 MiB | 27 055 req/s | 1,30 ms | 10,3 s | node |
+| 7. Sans log par requête | 260 MB | 7 | 3,4 s | 0,9 s | 0,4 s | 20,2 MiB | 32 429 req/s | 1,19 ms | 10,3 s | node |
