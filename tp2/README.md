@@ -15,7 +15,9 @@ cd tp2
 
 | Mesure | Comment |
 | --- | --- |
-| Taille, couches | `docker image inspect` (taille décompressée sur disque) |
+| Disque | espace occupé par l'image (`docker image inspect`). Avec le stockage containerd, cela inclut les couches décompressées et les blobs compressés |
+| Compressée | colonne CONTENT SIZE de `docker images` : ce qu'un registry transfère à chaque `docker pull` |
+| Couches | nombre de couches du système de fichiers |
 | Build à froid | `docker build --no-cache`, avec les images de base déjà téléchargées |
 | Rebuild | rebuild après une modification de `server.js` : montre si le cache est bien utilisé |
 | Démarrage | du `docker run` à la première réponse HTTP 200 |
@@ -154,15 +156,15 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
 
 ## Mesures
 
-| Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0. Départ | 1884 MB | 13 | 12,4 s | 14,5 s | 0,3 s | 19,9 MiB | 25 037 req/s | 1,48 ms | 10,3 s | root |
-| 1. `.dockerignore` | 1890 MB | 12 | 14,0 s | 12,1 s | 0,3 s | 19,8 MiB | 27 027 req/s | 1,30 ms | 10,3 s | root |
-| 2. Sans apt ni faux build | 1815 MB | 10 | 3,4 s | 3,5 s | 0,3 s | 19,7 MiB | 27 016 req/s | 1,33 ms | 10,3 s | root |
-| 3. Dépendances | 1802 MB | 11 | 3,0 s | 0,8 s | 0,5 s | 19,8 MiB | 26 630 req/s | 1,37 ms | 10,3 s | root |
-| 4. Alpine | 271 MB | 7 | 4,0 s | 0,9 s | 0,5 s | 20,0 MiB | 25 532 req/s | 1,42 ms | 10,3 s | root |
-| 5. Non-root | 271 MB | 7 | 3,1 s | 0,9 s | 0,5 s | 20,0 MiB | 25 305 req/s | 1,43 ms | 10,3 s | node |
-| 6. Sans `mongodb` | 260 MB | 7 | 2,9 s | 0,8 s | 0,4 s | 20,3 MiB | 27 055 req/s | 1,30 ms | 10,3 s | node |
-| 7. Sans log par requête | 260 MB | 7 | 3,4 s | 0,9 s | 0,4 s | 20,2 MiB | 32 429 req/s | 1,19 ms | 10,3 s | node |
-| 8. `/big` en streaming | 260 MB | 7 | 3,0 s | 0,8 s | 0,4 s | 20,1 MiB | 35 125 req/s | 1,08 ms | 10,3 s | node |
-| 9. Arrêt propre | 260 MB | 7 | 2,7 s | 0,8 s | 0,4 s | 20,0 MiB | 35 129 req/s | 1,09 ms | 0,2 s | node |
+| Étape | Disque | Compressée | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0. Départ | 1884 MB | 474 MB | 13 | 12,4 s | 14,5 s | 0,3 s | 19,9 MiB | 25 037 req/s | 1,48 ms | 10,3 s | root |
+| 1. `.dockerignore` | 1890 MB | 476 MB | 12 | 14,0 s | 12,1 s | 0,3 s | 19,8 MiB | 27 027 req/s | 1,30 ms | 10,3 s | root |
+| 2. Sans apt ni faux build | 1815 MB | 451 MB | 10 | 3,4 s | 3,5 s | 0,3 s | 19,7 MiB | 27 016 req/s | 1,33 ms | 10,3 s | root |
+| 3. Dépendances | 1802 MB | 448 MB | 11 | 3,0 s | 0,8 s | 0,5 s | 19,8 MiB | 26 630 req/s | 1,37 ms | 10,3 s | root |
+| 4. Alpine | 271 MB | 65,7 MB | 7 | 4,0 s | 0,9 s | 0,5 s | 20,0 MiB | 25 532 req/s | 1,42 ms | 10,3 s | root |
+| 5. Non-root | 271 MB | 65,7 MB | 7 | 3,1 s | 0,9 s | 0,5 s | 20,0 MiB | 25 305 req/s | 1,43 ms | 10,3 s | node |
+| 6. Sans `mongodb` | 260 MB | 64,2 MB | 7 | 2,9 s | 0,8 s | 0,4 s | 20,3 MiB | 27 055 req/s | 1,30 ms | 10,3 s | node |
+| 7. Sans log par requête | 260 MB | 64,2 MB | 7 | 3,4 s | 0,9 s | 0,4 s | 20,2 MiB | 32 429 req/s | 1,19 ms | 10,3 s | node |
+| 8. `/big` en streaming | 260 MB | 64,2 MB | 7 | 3,0 s | 0,8 s | 0,4 s | 20,1 MiB | 35 125 req/s | 1,08 ms | 10,3 s | node |
+| 9. Arrêt propre | 260 MB | 64,2 MB | 7 | 2,7 s | 0,8 s | 0,4 s | 20,0 MiB | 35 129 req/s | 1,09 ms | 0,2 s | node |
