@@ -72,9 +72,17 @@ Le `node_modules` de la machine n'est plus envoyé ni copié dans l'image. Les d
 - Contexte de build : 13,9 Mo → 60 Ko.
 - L'image grossit de 6 Mo : `npm install` part maintenant de zéro et laisse son cache dans `/root/.npm` (7,1 Mo). Ce sera corrigé à l'étape 3.
 
+### 2. Suppression des paquets apt, du faux build et des ports inutiles
+
+On retire `apt-get install build-essential ca-certificates locales` (aucun module natif à compiler), `RUN npm run build` (qui ne fait qu'un `echo`) et les ports 4000 et 5000.
+
+- Taille : 1890 → 1815 Mo (−75 Mo).
+- Build à froid : 14,0 → 3,4 s, car il n'y a plus d'`apt-get update`.
+
 ## Mesures
 
 | Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0. Départ | 1884 MB | 13 | 12,4 s | 14,5 s | 0,3 s | 19,9 MiB | 25 037 req/s | 1,48 ms | 10,3 s | root |
 | 1. `.dockerignore` | 1890 MB | 12 | 14,0 s | 12,1 s | 0,3 s | 19,8 MiB | 27 027 req/s | 1,30 ms | 10,3 s | root |
+| 2. Sans apt ni faux build | 1815 MB | 10 | 3,4 s | 3,5 s | 0,3 s | 19,7 MiB | 27 016 req/s | 1,33 ms | 10,3 s | root |
