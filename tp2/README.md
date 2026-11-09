@@ -154,6 +154,15 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
 
 - Arrêt : 10,3 → 0,2 s, avec un code de sortie 0. Cela accélère les redéploiements et les `docker compose down`.
 
+### 10. Build multi-stage
+
+Un premier stage installe les dépendances avec npm. L'image finale part d'une Alpine nue et ne reçoit que le binaire `node`, les bibliothèques dont il dépend (`libstdc++`, `libgcc`, `libatomic`), `node_modules` et `server.js`. npm (18 Mo), les en-têtes C (6,6 Mo) et le cache npm ne sont plus dans l'image. L'Alpine finale est dans la même version (3.24.4) que celle de `node:26.13.0-alpine`, ce qui garantit la même ABI musl.
+
+- Taille sur disque : 260 → 219 Mo ; taille compressée : 64,2 → 56,2 Mo (−12 %) ; couches : 7 → 6.
+- Comme npm n'est plus dans l'image, la surface d'attaque est plus petite.
+- En contrepartie, le build à froid passe de 2,7 à 7,2 s (deux stages et un `apk add`), le rebuild reste à 0,9 s, et il faut garder la version d'Alpine alignée sur celle de l'image `node`.
+- Testée aussi : `gcr.io/distroless/nodejs26-debian13` fait 243 Mo seule, donc pas mieux.
+
 ## Mesures
 
 | Étape | Disque | Compressée | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
@@ -168,3 +177,4 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
 | 7. Sans log par requête | 260 MB | 64,2 MB | 7 | 3,4 s | 0,9 s | 0,4 s | 20,2 MiB | 32 429 req/s | 1,19 ms | 10,3 s | node |
 | 8. `/big` en streaming | 260 MB | 64,2 MB | 7 | 3,0 s | 0,8 s | 0,4 s | 20,1 MiB | 35 125 req/s | 1,08 ms | 10,3 s | node |
 | 9. Arrêt propre | 260 MB | 64,2 MB | 7 | 2,7 s | 0,8 s | 0,4 s | 20,0 MiB | 35 129 req/s | 1,09 ms | 0,2 s | node |
+| 10. Multi-stage | 219 MB | 56,2 MB | 6 | 7,2 s | 0,9 s | 0,4 s | 20,2 MiB | 37 093 req/s | 1,07 ms | 0,2 s | node |
