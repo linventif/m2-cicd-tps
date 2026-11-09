@@ -104,6 +104,13 @@ COPY server.js ./
 
 `USER root` devient `USER node`, l'utilisateur fourni par l'image officielle. Les fichiers de l'appli appartiennent toujours à root : le process peut les lire mais pas les modifier (`touch /app/server.js` → `Permission denied`). Les performances ne changent pas.
 
+### 6. Suppression de la dépendance `mongodb`
+
+`server.js` ne charge que `express`, `fs` et `path` : `mongodb` ne sert à rien. On la retire avec `npm uninstall mongodb --package-lock-only`.
+
+- `node_modules` : 14 → 4,4 Mo (78 → 67 paquets).
+- Taille : 271 → 260 Mo.
+
 ## Mesures
 
 | Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
@@ -114,3 +121,4 @@ COPY server.js ./
 | 3. Dépendances | 1802 MB | 11 | 3,0 s | 0,8 s | 0,5 s | 19,8 MiB | 26 630 req/s | 1,37 ms | 10,3 s | root |
 | 4. Alpine | 271 MB | 7 | 4,0 s | 0,9 s | 0,5 s | 20,0 MiB | 25 532 req/s | 1,42 ms | 10,3 s | root |
 | 5. Non-root | 271 MB | 7 | 3,1 s | 0,9 s | 0,5 s | 20,0 MiB | 25 305 req/s | 1,43 ms | 10,3 s | node |
+| 6. Sans `mongodb` | 260 MB | 7 | 2,9 s | 0,8 s | 0,4 s | 20,3 MiB | 27 055 req/s | 1,30 ms | 10,3 s | node |
