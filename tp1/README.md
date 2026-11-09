@@ -200,3 +200,115 @@ docker rm tp1_flask
 ```
 
 ## 1.6 Utilisation de docker compose
+
+Fichiers dans [`ex6/`](ex6/) :
+
+- `app.py` : l'app de l'ex5, avec en plus une connexion MongoDB via `pymongo`
+- `requirements.txt` : `flask==3.1.3`, `pymongo==4.19.0`
+- `Dockerfile` : identique à l'ex5
+- `compose.yaml` : deux services, `web` (Flask) et `mongo` (MongoDB)
+
+### Connexion à MongoDB
+
+L'URI et le nom de la base viennent des variables d'environnement, avec une valeur par défaut pour lancer l'app hors Docker :
+
+```python
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
+MONGO_DB = os.environ.get("MONGO_DB", "tp1")
+
+client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
+db = client[MONGO_DB]
+```
+
+Routes :
+
+| Route | Rôle |
+| --- | --- |
+| `/` | `Hello, World!` |
+| `/health` | `ping` sur MongoDB : `200 {"status": "ok"}` si la connexion fonctionne, `503` sinon |
+| `/visits` | incrémente un compteur stocké dans la collection `counters` et renvoie sa valeur |
+
+### compose.yaml
+
+```yaml
+services:
+  web:
+    build: .
+    image: tp1-flask-mongo
+    ports:
+      - "5000:5000"
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: tp1
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  mongo:
+    image: mongo:8.2
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mongo-data:
+```
+
+Choix faits :
+
+- **Réseau** : Compose crée un réseau commun aux deux services, et `web` joint la base par le nom du service (`mongodb://mongo:27017`).
+- **Port MongoDB non publié** : seul `web` a besoin d'accéder à la base, donc le port 27017 n'est pas exposé sur la machine hôte.
+- **`depends_on` + `healthcheck`** : `web` ne démarre qu'une fois que MongoDB répond au `ping`, et pas seulement quand le conteneur est lancé.
+- **Volume `mongo-data`** : les données survivent à un `docker compose down`.
+- **`mongo:8.2` plutôt que `8.0`** : MongoDB 8.0 refuse de démarrer sur un noyau Linux ≥ 6.19 ([SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912)) :
+
+  ```text
+  MongoDB cannot start: Linux kernel versions 6.19 and newer has a known incompatibility with this version of MongoDB.
+  ```
+
+### Lancement et vérification
+
+```bash
+cd tp1/ex6
+docker compose up -d --build
+```
+
+```bash
+$ docker compose ps
+SERVICE   IMAGE             STATUS                   PORTS
+mongo     mongo:8.2         Up 6 seconds (healthy)   27017/tcp
+web       tp1-flask-mongo   Up Less than a second    0.0.0.0:5000->5000/tcp
+
+$ curl http://localhost:5000/health
+{"mongo":"connected","status":"ok"}
+
+$ curl http://localhost:5000/visits
+{"visits":1}
+$ curl http://localhost:5000/visits
+{"visits":2}
+```
+
+Le compteur est bien écrit dans MongoDB :
+
+```bash
+$ docker compose exec mongo mongosh --quiet tp1 --eval 'printjson(db.counters.find().toArray())'
+[
+  {
+    _id: 'visits',
+    count: 2
+  }
+]
+```
+
+Tailles des images : `tp1-flask-mongo` 215 MB, `mongo:8.2` 1.3 GB.
+
+Arrêt :
+
+```bash
+docker compose down       # supprime les conteneurs, garde le volume
+docker compose down -v    # supprime aussi le volume (données perdues)
+```
