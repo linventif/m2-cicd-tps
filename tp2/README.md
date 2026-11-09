@@ -100,6 +100,10 @@ COPY server.js ./
 - Taille : 1802 → 271 Mo (−85 %), c'est le plus gros gain du TP.
 - Couches : 11 → 7.
 
+### 5. Utilisateur non-root
+
+`USER root` devient `USER node`, l'utilisateur fourni par l'image officielle. Les fichiers de l'appli appartiennent toujours à root : le process peut les lire mais pas les modifier (`touch /app/server.js` → `Permission denied`). Les performances ne changent pas.
+
 ## Mesures
 
 | Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
@@ -109,3 +113,4 @@ COPY server.js ./
 | 2. Sans apt ni faux build | 1815 MB | 10 | 3,4 s | 3,5 s | 0,3 s | 19,7 MiB | 27 016 req/s | 1,33 ms | 10,3 s | root |
 | 3. Dépendances | 1802 MB | 11 | 3,0 s | 0,8 s | 0,5 s | 19,8 MiB | 26 630 req/s | 1,37 ms | 10,3 s | root |
 | 4. Alpine | 271 MB | 7 | 4,0 s | 0,9 s | 0,5 s | 20,0 MiB | 25 532 req/s | 1,42 ms | 10,3 s | root |
+| 5. Non-root | 271 MB | 7 | 3,1 s | 0,9 s | 0,5 s | 20,0 MiB | 25 305 req/s | 1,43 ms | 10,3 s | node |
