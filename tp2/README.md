@@ -1,0 +1,70 @@
+# TP 2 - CICD - Optimisation Docker
+
+Sujet : [tp_optimisation_docker.pdf](tp_optimisation_docker.pdf)
+
+Le sujet fournit une petite appli Node.js (Express) avec son Dockerfile, que l'on optimise étape par étape dans [`ex3/`](ex3/). Les fichiers ont été importés tels quels au commit `feat(tp2): add provided node.js app and dockerfile`.
+
+## Méthode de mesure
+
+Toutes les mesures viennent de [`bench.sh`](bench.sh), lancé après chaque étape :
+
+```bash
+cd tp2
+./bench.sh <étape>
+```
+
+| Mesure | Comment |
+| --- | --- |
+| Taille, couches | `docker image inspect` (taille décompressée sur disque) |
+| Build à froid | `docker build --no-cache`, avec les images de base déjà téléchargées |
+| Rebuild | rebuild après une modification de `server.js` : montre si le cache est bien utilisé |
+| Démarrage | du `docker run` à la première réponse HTTP 200 |
+| RAM | `docker stats` au repos |
+| Débit, latence | `autocannon` sur `/`, avec 50 connexions pendant 10 s |
+| Arrêt | durée de `docker stop` |
+
+Machine : 16 cœurs, 29 Go de RAM, Docker 29.8.1, Linux 7.0. Les temps de build dépendent du réseau (`apt-get`, `npm`) : sur deux mesures de départ, le build à froid a pris 12,4 s puis 38,0 s. On compare donc surtout les ordres de grandeur.
+
+## Analyse de départ
+
+Dockerfile fourni :
+
+```dockerfile
+FROM node:latest
+WORKDIR /app
+COPY node_modules ./node_modules
+COPY . /app
+RUN npm install
+RUN apt-get update && apt-get install -y build-essential ca-certificates locales && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && locale-gen
+EXPOSE 3000 4000 5000
+ENV NODE_ENV=development
+RUN npm run build
+USER root
+CMD ["node", "server.js"]
+```
+
+Problèmes relevés :
+
+| # | Problème | Conséquence |
+| --- | --- | --- |
+| 1 | `FROM node:latest` | image Debian complète (1,8 Go) et version non figée |
+| 2 | `COPY node_modules` depuis la machine, sans `.dockerignore` | modules compilés pour l'hôte, envoyés dans le contexte puis copiés dans l'image |
+| 3 | `COPY . /app` avant `npm install` | toute modification du code invalide le cache : les dépendances et `apt-get` sont réinstallés |
+| 4 | `npm install` au lieu de `npm ci --omit=dev` | installe aussi les devDependencies (`nodemon`) et ne respecte pas strictement le lockfile |
+| 5 | `apt-get install build-essential locales…` | inutile (aucun module natif), et les listes apt ne sont pas nettoyées : +50 Mo |
+| 6 | `RUN npm run build` | le script `build` ne fait qu'un `echo` |
+| 7 | `EXPOSE 3000 4000 5000` | seul le port 3000 est utilisé |
+| 8 | `ENV NODE_ENV=development` | Express tourne en mode développement |
+| 9 | `USER root` | le conteneur tourne en root |
+| 10 | dépendance `mongodb` | jamais utilisée dans le code |
+| 11 | middleware de log sur chaque requête | un `console.log` par requête, ce qui ralentit le serveur |
+| 12 | `existsSync` + `readFileSync` dans `/big` | lectures synchrones qui bloquent l'event loop |
+| 13 | aucune gestion de `SIGTERM` | `node` tourne en PID 1 et ignore le signal : `docker stop` attend 10 s puis tue le process |
+
+Taille des couches (`docker history`) : `apt-get` 50,1 Mo, `COPY node_modules` 14,2 Mo, `npm install` 7,7 Mo, le reste vient de l'image de base.
+
+## Mesures
+
+| Étape | Taille | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0. Départ | 1884 MB | 13 | 12,4 s | 14,5 s | 0,3 s | 19,9 MiB | 25 037 req/s | 1,48 ms | 10,3 s | root |
