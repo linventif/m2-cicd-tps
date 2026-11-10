@@ -25,7 +25,7 @@ Rendus des TPs du cours CI/CD (Université Toulouse Capitole).
 
 ## TP3 : projet GitLab
 
-Le TP3 impose un dépôt GitLab public avec son propre pipeline. Il vit dans [son dépôt](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire) et apparaît ici comme le sous-module `tp3`, fixé sur la version `v1.1.0`. Pour tout récupérer d'un coup :
+Le TP3 impose un dépôt GitLab public avec son propre pipeline. Il vit dans [son dépôt](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire) et apparaît ici comme le sous-module `tp3`, fixé sur la version `v1.1.1`. Pour tout récupérer d'un coup :
 
 ```bash
 git clone --recurse-submodules git@github.com:linventif/m2-cicd-tps.git
@@ -37,6 +37,7 @@ git submodule update --init
 | --- | --- |
 | Rapport : mise en place GitLab, GitFlow, pipeline, Docker | [REPORT.md](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/blob/main/REPORT.md) |
 | Documentation de l'API (pdoc, GitLab Pages) | <https://linventif.gitlab.io/tp-gitlab-launaybecue-gregoire/> |
+| Image Docker (version console) | [linventif/tp-gitlab-launaybecue-gregoire](https://hub.docker.com/r/linventif/tp-gitlab-launaybecue-gregoire) : `docker run -it linventif/tp-gitlab-launaybecue-gregoire` |
 | Historique des versions | [CHANGELOG.md](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/blob/main/CHANGELOG.md) |
 | Pipelines CI/CD | [pipelines](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/pipelines) |
 | Merge requests (une par feature, GitFlow) | [merge requests](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/merge_requests?scope=all&state=all) |
