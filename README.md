@@ -6,6 +6,7 @@ Rendus des TPs du cours CI/CD (Université Toulouse Capitole).
 | --- | --- | --- | --- |
 | TP1 | Docker : conteneurs, Dockerfile, docker compose | `feat/tp1-docker` | [tp1/README.md](tp1/README.md) |
 | TP2 | Optimisation d'une image Docker (appli Node.js) | `feat/tp2-docker-optimisation` | [tp2/README.md](tp2/README.md) |
+| TP3 | GitLab : GitFlow, pipeline CI/CD, Docker Hub, GitLab Pages | dépôt GitLab dédié, sous-module `tp3` | [tp3/REPORT.md](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/blob/main/REPORT.md) |
 
 ## Structure du dépôt
 
@@ -20,6 +21,14 @@ Rendus des TPs du cours CI/CD (Université Toulouse Capitole).
     ├── pyproject.toml       # environnement Python du TP, si le TP est en Python (uv)
     ├── uv.lock
     └── exN/                 # un dossier par exercice
+```
+
+Le TP3 impose un dépôt GitLab public avec son propre pipeline : il vit dans [son dépôt](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire) et apparaît ici comme le sous-module `tp3`. Pour tout récupérer d'un coup :
+
+```bash
+git clone --recurse-submodules git@github.com:linventif/m2-cicd-tps.git
+# dans un clone existant :
+git submodule update --init
 ```
 
 ## Prérequis
