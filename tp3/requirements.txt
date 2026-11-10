@@ -1,0 +1,22 @@
+# Requirements pour l'application Todo List
+# 
+# Cette application utilise principalement des modules de la bibliothèque standard Python.
+# Aucune dépendance externe n'est requise pour le fonctionnement de base.
+#
+# Pour le développement et les tests, vous pourriez vouloir installer :
+
+# Tests et couverture de code
+pytest>=7.0.0
+coverage>=6.0
+
+# Formatage du code (optionnel)
+# black>=22.0.0
+# flake8>=4.0.0
+
+# Documentation (optionnel)
+# sphinx>=4.0.0
+
+# Note : Cette application nécessite Python 3.6+ avec tkinter
+# Sur certains systèmes Linux, tkinter peut nécessiter une installation séparée :
+#   Ubuntu/Debian: sudo apt-get install python3-tk
+#   CentOS/RHEL: sudo yum install tkinter
