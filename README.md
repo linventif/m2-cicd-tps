@@ -17,7 +17,7 @@ Rendus des TPs du cours CI/CD (Université Toulouse Capitole).
 └── tpN/                     # un dossier par TP
     ├── README.md            # tâches réalisées, commandes, résultats
     ├── <sujet>.pdf          # sujet du TP
-    ├── pyproject.toml       # environnement Python du TP (uv)
+    ├── pyproject.toml       # environnement Python du TP, si le TP est en Python (uv)
     ├── uv.lock
     └── exN/                 # un dossier par exercice
 ```
@@ -29,7 +29,7 @@ Rendus des TPs du cours CI/CD (Université Toulouse Capitole).
 
 ## Environnement Python
 
-Chaque TP a son propre environnement Python, géré avec uv : un `pyproject.toml` pour les dépendances, un `uv.lock` pour les versions exactes, et un `.venv/` local qui n'est pas versionné.
+Chaque TP en Python (TP1) a son propre environnement, géré avec uv : un `pyproject.toml` pour les dépendances, un `uv.lock` pour les versions exactes, et un `.venv/` local qui n'est pas versionné.
 
 ```bash
 cd tpN
