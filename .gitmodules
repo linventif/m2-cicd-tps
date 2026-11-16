@@ -2,3 +2,7 @@
 	path = tp3
 	url = git@gitlab.com:Linventif/tp-gitlab-launaybecue-gregoire.git
 	branch = main
+[submodule "tpk8s"]
+	path = tpk8s
+	url = https://github.com/linventif/m2-cicd-tps-k8s.git
+	branch = main
