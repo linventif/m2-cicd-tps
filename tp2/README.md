@@ -1,169 +1,45 @@
-# TP 2 - CICD - Optimisation Docker
+# TP2 : optimisation Docker
 
-Sujet : [tp_optimisation_docker.pdf](tp_optimisation_docker.pdf)
+[Sujet](tp_optimisation_docker.pdf). L'application Node.js fournie est optimisée par étapes dans [`ex3/`](ex3/), avec un commit de code puis de documentation par étape.
 
-Le sujet fournit une petite appli Node.js (Express) avec son Dockerfile, que l'on optimise étape par étape dans [`ex3/`](ex3/). Les fichiers ont été importés tels quels au commit `feat(tp2): add provided node.js app and dockerfile`.
+## Analyse et améliorations
+
+Au départ : image Debian complète avec tag `latest`, modules copiés depuis l'hôte, cache invalidé par le code, dépendances et paquets système inutiles, exécution en root. L'application journalise chaque requête, lit `/big` de manière synchrone et ne traite pas `SIGTERM`.
+
+| Étape | Modification | Intérêt |
+| --- | --- | --- |
+| 1 | Ajouter `.dockerignore`, retirer `COPY node_modules` | Installer les modules dans l'image et réduire le contexte de 13,9 Mo à 60 Ko |
+| 2 | Retirer les paquets apt, le faux build et les ports inutilisés | Éviter les installations et couches inutiles |
+| 3 | Copier les manifests avant le code, utiliser `npm ci --omit=dev` et `NODE_ENV=production` | Réutiliser le cache et exclure les dépendances de développement |
+| 4 | Utiliser `node:26.13.0-alpine` | Réduire fortement l'image et fixer la version de Node.js |
+| 5 | Exécuter avec `USER node` | Éviter les privilèges root |
+| 6 | Supprimer la dépendance `mongodb` inutilisée | Réduire les modules installés |
+| 7 | Retirer le log par requête | Réduire le coût des écritures dans stdout |
+| 8 | Lire et transformer `/big` en streaming | Éviter le blocage de l'event loop et le chargement intégral en mémoire |
+| 9 | Gérer `SIGTERM` et `SIGINT` | Terminer les requêtes en cours, puis sortir proprement |
+| 10 | Construire en multi-stage | Ne conserver que Node.js, les bibliothèques nécessaires, les modules et l'application |
+
+Le [Dockerfile final](ex3/Dockerfile) installe les dépendances dans un premier stage Node.js. L'image d'exécution utilise `alpine:3.24.4`, alignée sur l'Alpine de l'image Node.js ; npm et les en-têtes de développement n'y sont plus présents. Ce choix réduit la taille mais demande de garder les deux bases compatibles.
 
 ## Méthode de mesure
 
-Les mesures du tableau viennent de [`bench.sh`](bench.sh), lancé après chaque étape. La route `/big` est mesurée à part avec [`bench-big.sh`](bench-big.sh) (voir l'étape 8). Il faut Docker, `jq` et Node.js (pour lancer `autocannon` via `npx`).
+Les mesures datent du **9 novembre 2026** (commit `7aedd6b`), avant les mises à jour de dépendances. Les tailles ont été vérifiées sur les onze images conservées.
+
+Scripts : [`bench.sh`](bench.sh) pour l'image et `/`, [`bench-big.sh`](bench-big.sh) pour la charge simultanée de `/big` et `/`. Prérequis : Docker, curl, jq, Node.js/npm et Python 3 pour le second script.
 
 ```bash
 cd tp2
-./bench.sh <étape>
+./bench.sh verification                # construit et mesure ex3/
+./bench-big.sh tp2-app:verification
 ```
 
-| Mesure | Comment |
-| --- | --- |
-| Disque | espace occupé par l'image (`docker image inspect`). Avec le stockage containerd, cela inclut les couches décompressées et les blobs compressés |
-| Compressée | colonne CONTENT SIZE de `docker images` : ce qu'un registry transfère à chaque `docker pull` |
-| Couches | nombre de couches du système de fichiers |
-| Build à froid | `docker build --no-cache`, avec les images de base déjà téléchargées |
-| Rebuild | rebuild après une modification de `server.js` : montre si le cache est bien utilisé |
-| Démarrage | du `docker run` à la première réponse HTTP 200 |
-| RAM | `docker stats` au repos |
-| Débit, latence | `autocannon` sur `/`, avec 50 connexions pendant 10 s |
-| Arrêt | durée de `docker stop` |
+La taille disque vient de `docker image inspect` et la taille compressée de `CONTENT SIZE` dans `docker images`. Le build à froid utilise `--no-cache`, avec les bases déjà téléchargées ; le rebuild modifie uniquement `server.js`.
 
-Machine : 16 cœurs, 29 Go de RAM, Docker 29.8.1, Linux 7.0. Les temps de build dépendent du réseau (`apt-get`, `npm`) : sur deux mesures de départ, le build à froid a pris 12,4 s puis 38,0 s. Le débit varie d'environ ±10 % entre deux mesures identiques (25 037 puis 23 697 req/s au départ). On compare donc surtout les ordres de grandeur.
+Le démarrage est mesuré jusqu'au premier HTTP 200, la RAM au repos avec `docker stats`, et l'arrêt avec `docker stop`. Le débit et la latence sont mesurés sur `/` avec autocannon : 50 connexions pendant 10 s, après 3 s de chauffe.
 
-## Analyse de départ
+Machine de mesure : 16 cœurs, 29 Go de RAM, Docker 29.8.1, Linux 7.0. Les builds dépendent du réseau et le débit varie d'environ ±10 % : les gains modestes doivent être interprétés avec cette marge.
 
-Dockerfile fourni :
-
-```dockerfile
-FROM node:latest
-WORKDIR /app
-COPY node_modules ./node_modules
-COPY . /app
-RUN npm install
-RUN apt-get update && apt-get install -y build-essential ca-certificates locales && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && locale-gen
-EXPOSE 3000 4000 5000
-ENV NODE_ENV=development
-RUN npm run build
-USER root
-CMD ["node", "server.js"]
-```
-
-Problèmes relevés :
-
-| # | Problème | Conséquence |
-| --- | --- | --- |
-| 1 | `FROM node:latest` | image Debian complète (1,8 Go) et version non figée |
-| 2 | `COPY node_modules` depuis la machine, sans `.dockerignore` | modules compilés pour l'hôte, envoyés dans le contexte puis copiés dans l'image |
-| 3 | `COPY . /app` avant `npm install` | toute modification du code invalide le cache : les dépendances et `apt-get` sont réinstallés |
-| 4 | `npm install` au lieu de `npm ci --omit=dev` | installe aussi les devDependencies (`nodemon`) et ne respecte pas strictement le lockfile |
-| 5 | `apt-get install build-essential locales…` | inutile (aucun module natif), et les listes apt ne sont pas nettoyées : +50 Mo |
-| 6 | `RUN npm run build` | le script `build` ne fait qu'un `echo` |
-| 7 | `EXPOSE 3000 4000 5000` | seul le port 3000 est utilisé |
-| 8 | `ENV NODE_ENV=development` | Express tourne en mode développement |
-| 9 | `USER root` | le conteneur tourne en root |
-| 10 | dépendance `mongodb` | jamais utilisée dans le code |
-| 11 | middleware de log sur chaque requête | un `console.log` par requête, ce qui ralentit le serveur |
-| 12 | `existsSync` + `readFileSync` dans `/big` | lectures synchrones qui bloquent l'event loop |
-| 13 | aucune gestion de `SIGTERM` | `node` tourne en PID 1 et ignore le signal : `docker stop` attend 10 s puis tue le process |
-
-Taille des couches (`docker history`) : `apt-get` 50,1 Mo, `COPY node_modules` 14,2 Mo, `npm install` 7,7 Mo, le reste vient de l'image de base.
-
-## Étapes
-
-### 1. `.dockerignore` et suppression de `COPY node_modules`
-
-Le `node_modules` de la machine n'est plus envoyé ni copié dans l'image. Les dépendances sont installées uniquement dans le conteneur.
-
-- Contexte de build : 13,9 Mo → 60 Ko.
-- L'image grossit de 6 Mo : `npm install` part maintenant de zéro et laisse son cache dans `/root/.npm` (7,1 Mo). Ce sera corrigé à l'étape 3.
-
-### 2. Suppression des paquets apt, du faux build et des ports inutiles
-
-On retire `apt-get install build-essential ca-certificates locales` (aucun module natif à compiler), `RUN npm run build` (qui ne fait qu'un `echo`) et les ports 4000 et 5000.
-
-- Taille : 1890 → 1815 Mo (−75 Mo).
-- Build à froid : 14,0 → 3,4 s, car il n'y a plus d'`apt-get update`.
-
-### 3. Dépendances : cache, `npm ci --omit=dev`, `NODE_ENV=production`
-
-```dockerfile
-ENV NODE_ENV=production
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-COPY server.js ./
-```
-
-- Les fichiers `package*.json` sont copiés **avant** le code. Quand seul `server.js` change, la couche des dépendances reste en cache : le rebuild passe de 3,5 à 0,8 s.
-- `npm ci` installe exactement les versions du lockfile, et `--omit=dev` laisse `nodemon` de côté : `node_modules` passe de 16 à 14 Mo.
-- `npm cache clean` : le cache npm passe de 7,1 Mo à 56 Ko.
-- Taille : 1815 → 1802 Mo.
-
-### 4. Image de base `node:26.13.0-alpine`
-
-`node:latest` est une image Debian complète, qui embarque compilateurs, outils et bibliothèques, et dont la version change à chaque release. `node:26.13.0-alpine` contient la même version de Node.js sur Alpine Linux, et la version est figée.
-
-- Taille : 1802 → 271 Mo (−85 %), c'est le plus gros gain du TP.
-- Couches : 11 → 7.
-
-### 5. Utilisateur non-root
-
-`USER root` devient `USER node`, l'utilisateur fourni par l'image officielle. Les fichiers de l'appli appartiennent toujours à root : le process peut les lire mais pas les modifier (`touch /app/server.js` → `Permission denied`). Les performances ne changent pas.
-
-### 6. Suppression de la dépendance `mongodb`
-
-`server.js` ne charge que `express`, `fs` et `path` : `mongodb` ne sert à rien. On la retire avec `npm uninstall mongodb --package-lock-only`.
-
-- `node_modules` : 14 → 4,4 Mo (78 → 67 paquets).
-- Taille : 271 → 260 Mo.
-
-### 7. Suppression du middleware de log
-
-Le middleware écrivait une ligne dans `stdout` à chaque requête. Docker capture ces logs, et à plus de 25 000 req/s cela coûte cher. Pour journaliser les requêtes en production, il vaut mieux un logger asynchrone (`pino`, par exemple) ou les logs du reverse proxy.
-
-- Débit : 27 055 → 32 429 req/s (+20 %).
-- Latence moyenne : 1,30 → 1,19 ms.
-
-### 8. `/big` en streaming
-
-`existsSync` puis `readFileSync` chargeaient tout le fichier en mémoire, et `replace` le transformait en une seule fois. Pendant ce temps, l'event loop était bloquée : le serveur ne répondait plus à aucune autre requête. Maintenant, le fichier est lu par morceaux et transformé au fil de l'eau :
-
-```js
-const file = fs.createReadStream(BIG_FILE, 'utf8');
-// ...
-pipeline(file, newlinesToBr, res, () => {});   // newlinesToBr : Transform qui remplace \n par <br/>
-```
-
-La réponse est identique à l'octet près, et le message `Fichier introuvable` est conservé.
-
-`bench.sh` ne charge que `/`, et le fichier n'existe pas dans l'image. [`bench-big.sh`](bench-big.sh) monte donc un fichier de 5 Mo et charge `/big` et `/` en même temps pendant 10 s (10 connexions chacun) :
-
-| | Avant (synchrone) | Après (streaming) |
-| --- | --- | --- |
-| `/big` | 58 req/s | 83 req/s |
-| `/` pendant la charge | 69 req/s, latence 142 ms (p99 178 ms) | 5 923 req/s, latence 1,3 ms (p99 4 ms) |
-| RAM sous charge | 179 Mio | 113 Mio |
-
-### 9. Arrêt propre sur `SIGTERM`
-
-Dans le conteneur, `node` est le PID 1 : sans handler, il ignore `SIGTERM`. `docker stop` attendait donc 10 s, puis tuait le process avec `SIGKILL` (code 137). Maintenant, le serveur termine les requêtes en cours puis s'arrête :
-
-```js
-for (const signal of ['SIGTERM', 'SIGINT']) {
-  process.on(signal, () => {
-    server.close(() => process.exit(0));
-  });
-}
-```
-
-- Arrêt : 10,3 → 0,2 s, avec un code de sortie 0. Cela accélère les redéploiements et les `docker compose down`.
-
-### 10. Build multi-stage
-
-Un premier stage installe les dépendances avec npm. L'image finale part d'une Alpine nue et ne reçoit que le binaire `node`, les bibliothèques dont il dépend (`libstdc++`, `libgcc`, `libatomic`), `node_modules` et `server.js`. npm (18 Mo), les en-têtes C (6,6 Mo) et le cache npm ne sont plus dans l'image. L'Alpine finale est dans la même version (3.24.4) que celle de `node:26.13.0-alpine`, ce qui garantit la même ABI musl.
-
-- Taille sur disque : 260 → 219 Mo ; taille compressée : 64,2 → 56,2 Mo (−12 %) ; couches : 7 → 6.
-- Comme npm n'est plus dans l'image, la surface d'attaque est plus petite.
-- En contrepartie, le build à froid passe de 2,7 à 7,2 s (deux stages et un `apk add`), le rebuild reste à 0,9 s, et il faut garder la version d'Alpine alignée sur celle de l'image `node`.
-- Testée aussi : `gcr.io/distroless/nodejs26-debian13` fait 243 Mo seule, donc pas mieux.
-
-## Mesures
+## Mesures par étape
 
 | Étape | Disque | Compressée | Couches | Build à froid | Rebuild (code modifié) | Démarrage | RAM | Débit | Latence moy. | Arrêt | Utilisateur |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -179,53 +55,29 @@ Un premier stage installe les dépendances avec npm. L'image finale part d'une A
 | 9. Arrêt propre | 260 MB | 64,2 MB | 7 | 2,7 s | 0,8 s | 0,4 s | 20,0 MiB | 35 129 req/s | 1,09 ms | 0,2 s | node |
 | 10. Multi-stage | 219 MB | 56,2 MB | 6 | 7,2 s | 0,9 s | 0,4 s | 20,2 MiB | 37 093 req/s | 1,07 ms | 0,2 s | node |
 
-## Résultat
+## Vérification de `/big`
 
-Dockerfile final ([`ex3/Dockerfile`](ex3/Dockerfile)) :
+Un fichier de 5 Mo est monté dans le conteneur ; `/big` et `/` sont chargés en parallèle pendant 10 s, avec 10 connexions chacun.
 
-```dockerfile
-# Stage 1 : installation des dépendances de production
-FROM node:26.13.0-alpine AS deps
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+| Mesure | Avant : lecture synchrone | Après : streaming |
+| --- | --- | --- |
+| Débit sur `/big` | 58 req/s | 83 req/s |
+| `/` pendant la charge | 69 req/s, 142 ms en moyenne | 5 923 req/s, 1,3 ms en moyenne |
+| RAM sous charge | 179 Mio | 113 Mio |
 
-# Stage 2 : image d'exécution, Alpine + binaire node seul (sans npm ni en-têtes)
-FROM alpine:3.24.4
-RUN apk add --no-cache libstdc++ libgcc libatomic \
-    && addgroup -g 1000 node \
-    && adduser -u 1000 -G node -s /bin/sh -D node
-COPY --from=deps /usr/local/bin/node /usr/local/bin/node
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
-COPY server.js ./
-EXPOSE 3000
-USER node
-CMD ["node", "server.js"]
-```
+Le contenu et la transformation des sauts de ligne en `<br/>` sont conservés, ainsi que le message `Fichier introuvable` si le fichier est absent.
 
-| | Départ | Final | |
-| --- | --- | --- | --- |
-| Taille sur disque | 1884 Mo | 219 Mo | −88 % |
-| Taille compressée (`docker pull`) | 474 Mo | 56,2 Mo | −88 % |
-| Couches | 13 | 6 | |
-| Contexte de build | 13,9 Mo | 60 Ko | |
-| Rebuild après modification du code | 14,5 s | 0,9 s | ×16 plus rapide |
-| Débit sur `/` | 25 037 req/s | 37 093 req/s | +48 % ¹ |
-| `/` pendant une charge sur `/big` | 69 req/s | 5 900 à 8 200 req/s | plus de blocage |
-| Arrêt (`docker stop`) | 10,3 s | 0,2 s | |
-| Utilisateur | root | node | |
+## Bilan et lancement
 
-¹ Dont +20 % mesurés à l'étape 7 (suppression du log). Le reste est en partie du bruit de mesure (±10 %).
+L'image passe de **1 884 à 219 Mo sur disque** (−88 %), et de **474 à 56,2 Mo compressés**. Le rebuild passe de **14,5 à 0,9 s** et l'arrêt de **10,3 à 0,2 s**, avec un code de sortie 0. Le débit sur `/` passe de 25 037 à 37 093 req/s ; la suppression des logs apporte +20 % à elle seule, une partie du reste peut venir de la variabilité des mesures.
 
-Ce qui a le plus pesé : l'image de base (−85 % à elle seule), l'ordre des couches pour le cache (rebuild ×16), et les corrections du code (débit, blocage de l'event loop, arrêt).
-
-Lancer l'appli :
+La version actuelle a également été vérifiée après les mises à jour de dépendances : installation npm, build Docker, routes `/` et `/big`, et arrêt sur `SIGTERM` réussis.
 
 ```bash
 cd tp2/ex3
 docker build -t tp2-app .
 docker run -d -p 3000:3000 --name tp2-app tp2-app
 curl http://localhost:3000/
+docker stop tp2-app
+docker rm tp2-app
 ```
