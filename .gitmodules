@@ -1,6 +1,6 @@
 [submodule "tp3"]
 	path = tp3
-	url = git@gitlab.com:Linventif/tp-gitlab-launaybecue-gregoire.git
+	url = https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire.git
 	branch = main
 [submodule "tpk8s"]
 	path = tpk8s
