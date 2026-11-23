@@ -7,6 +7,7 @@ Rendus des TPs du cours CI/CD (Université Toulouse Capitole).
 | TP1 | Docker : conteneurs, Dockerfile, docker compose | `feat/tp1-docker` | [tp1/README.md](tp1/README.md) |
 | TP2 | Optimisation d'une image Docker (appli Node.js) | `feat/tp2-docker-optimisation` | [tp2/README.md](tp2/README.md) |
 | TP3 | GitLab : GitFlow, pipeline CI/CD, Docker Hub, GitLab Pages | dépôt GitLab dédié, sous-module `tp3` | [section TP3](#tp3--projet-gitlab), [REPORT.md](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/blob/main/REPORT.md) |
+| Kubernetes | Pods, Deployments, Services, namespaces et ConfigMaps | dépôt GitHub dédié, sous-module `tpk8s` | [tpk8s/README.md](tpk8s/README.md), [TP2 Kubernetes](tpk8s/tp2/README.md) |
 
 ## Structure du dépôt
 
@@ -45,6 +46,16 @@ git submodule update --init
 Le pipeline enchaîne build → lint (pylint) → security (bandit, gitleaks, pip-audit) → quality (pytest, couverture) → docker (build, test, publication Docker Hub) → deploy (documentation sur GitLab Pages). Une merge request n'est fusionnée que si tout le pipeline passe.
 
 Sur le projet fourni, le pipeline a fait passer pylint de 6,08 à 10/10 et les tests de 36 à 51, avec 96 % de couverture. Il a surtout révélé deux vrais bugs : la version console plantait, et l'interface graphique ne se lançait jamais.
+
+## TPs Kubernetes
+
+Les sujets et les manifests Kubernetes sont regroupés dans [un dépôt dédié](https://github.com/linventif/m2-cicd-tps-k8s), intégré ici comme sous-module `tpk8s`. Les manifests du TP1 et les premières étapes du TP2 (namespaces et ConfigMaps) sont versionnés. Les exercices Secrets et DNS du TP2 restent à réaliser.
+
+Le [README Kubernetes](tpk8s/README.md) présente les sujets et leur état ; le [README du TP2](tpk8s/tp2/README.md) décrit les commandes et les validations réalisées. Les manifests ont été analysés localement ; leur déploiement sur cluster reste à vérifier.
+
+```bash
+git submodule update --init --recursive
+```
 
 ## Prérequis
 
