@@ -6,6 +6,7 @@ Rendus des TPs du cours CI/CD (Université Toulouse Capitole).
 | --- | --- | --- | --- |
 | TP1 | Docker : conteneurs, Dockerfile, docker compose | `feat/tp1-docker` | [tp1/README.md](tp1/README.md) |
 | TP2 | Optimisation d'une image Docker (appli Node.js) | `feat/tp2-docker-optimisation` | [tp2/README.md](tp2/README.md) |
+| TP3 | GitLab : GitFlow, pipeline CI/CD, Docker Hub, GitLab Pages | dépôt GitLab dédié, sous-module `tp3` | [section TP3](#tp3--projet-gitlab), [REPORT.md](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/blob/main/REPORT.md) |
 
 ## Structure du dépôt
 
@@ -21,6 +22,29 @@ Rendus des TPs du cours CI/CD (Université Toulouse Capitole).
     ├── uv.lock
     └── exN/                 # un dossier par exercice
 ```
+
+## TP3 : projet GitLab
+
+Le TP3 impose un dépôt GitLab public avec son propre pipeline. Il vit dans [son dépôt](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire) et apparaît ici comme le sous-module `tp3`, fixé sur la version `v1.1.1`. Pour tout récupérer d'un coup :
+
+```bash
+git clone --recurse-submodules git@github.com:linventif/m2-cicd-tps.git
+# dans un clone existant :
+git submodule update --init
+```
+
+| Documentation | Lien |
+| --- | --- |
+| Rapport : mise en place GitLab, GitFlow, pipeline, Docker | [REPORT.md](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/blob/main/REPORT.md) |
+| Documentation de l'API (pdoc, GitLab Pages) | <https://linventif.gitlab.io/tp-gitlab-launaybecue-gregoire/> |
+| Image Docker (version console) | [linventif/tp-gitlab-launaybecue-gregoire](https://hub.docker.com/r/linventif/tp-gitlab-launaybecue-gregoire) : `docker run -it linventif/tp-gitlab-launaybecue-gregoire` |
+| Historique des versions | [CHANGELOG.md](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/blob/main/CHANGELOG.md) |
+| Pipelines CI/CD | [pipelines](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/pipelines) |
+| Merge requests (une par feature, GitFlow) | [merge requests](https://gitlab.com/Linventif/tp-gitlab-launaybecue-gregoire/-/merge_requests?scope=all&state=all) |
+
+Le pipeline enchaîne build → lint (pylint) → security (bandit, gitleaks, pip-audit) → quality (pytest, couverture) → docker (build, test, publication Docker Hub) → deploy (documentation sur GitLab Pages). Une merge request n'est fusionnée que si tout le pipeline passe.
+
+Sur le projet fourni, le pipeline a fait passer pylint de 6,08 à 10/10 et les tests de 36 à 51, avec 96 % de couverture. Il a surtout révélé deux vrais bugs : la version console plantait, et l'interface graphique ne se lançait jamais.
 
 ## Prérequis
 
